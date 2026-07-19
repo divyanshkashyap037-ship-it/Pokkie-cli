@@ -1,0 +1,2 @@
+[console_scripts]
+pokkie = pokkie.main:main

@@ -1,0 +1,13 @@
+Metadata-Version: 2.4
+Name: pokkie
+Version: 0.2.0
+Summary: Blazingly fast AI terminal assistant powered by Groq
+Author: Pokkie
+Requires-Python: >=3.9
+Requires-Dist: rich>=13.7.0
+Requires-Dist: prompt_toolkit>=3.0.43
+Requires-Dist: pyautogui>=0.9.54
+Requires-Dist: pillow>=10.0.0
+Requires-Dist: pygetwindow>=0.0.9
+Dynamic: author
+Dynamic: requires-python

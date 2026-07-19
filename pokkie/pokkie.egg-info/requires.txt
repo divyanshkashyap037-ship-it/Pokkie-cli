@@ -1,0 +1,5 @@
+rich>=13.7.0
+prompt_toolkit>=3.0.43
+pyautogui>=0.9.54
+pillow>=10.0.0
+pygetwindow>=0.0.9
