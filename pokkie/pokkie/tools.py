@@ -1,11 +1,11 @@
-"""Tool implementations for Pokkie automation."""
+"""Tool implementations for Pokkie automation and coding tasks."""
 from __future__ import annotations
+import fnmatch
 import json
 import os
 import platform
 import subprocess
 import time
-import ctypes
 import webbrowser
 from pathlib import Path
 from typing import Any
@@ -13,221 +13,99 @@ from typing import Any
 try:
     import pyautogui
     PYAUTOGUI_AVAILABLE = True
-except ImportError:
+except Exception:
     PYAUTOGUI_AVAILABLE = False
 
 
-def _focus_browser_window():
-    """Bring the browser window to the foreground (Windows only)."""
+def _focus_browser_window() -> bool:
+    """Bring a browser window to the foreground (Windows only)."""
     if platform.system() != "Windows":
         return False
     try:
-        import pygetwindow as gw
-        keywords = ["chrome", "edge", "firefox", "brave", "opera", "safari"]
-        for kw in keywords:
+        import pygetwindow as gw  # type: ignore
+        for kw in ("chrome", "edge", "firefox", "brave", "opera", "safari", "arc"):
             wins = gw.getWindowsWithTitle(kw)
             if wins:
-                win = wins[0]
                 try:
-                    win.activate()
+                    wins[0].activate()
                     time.sleep(0.25)
                     return True
                 except Exception:
                     continue
-        return False
     except Exception:
-        return False
+        pass
+    return False
 
 
-TOOLS = [
-    {
+def _tool(name: str, description: str, properties: dict, required: list[str] | None = None) -> dict:
+    return {
         "type": "function",
         "function": {
-            "name": "read_file",
-            "description": "Read the contents of a file from the filesystem.",
+            "name": name,
+            "description": description,
             "parameters": {
                 "type": "object",
-                "properties": {
-                    "path": {"type": "string", "description": "Absolute or relative path to the file"}
-                },
-                "required": ["path"]
-            }
-        }
-    },
-    {
-        "type": "function",
-        "function": {
-            "name": "write_file",
-            "description": "Write content to a file. Creates directories if needed.",
-            "parameters": {
-                "type": "object",
-                "properties": {
-                    "path": {"type": "string", "description": "Path to the file to create or overwrite"},
-                    "content": {"type": "string", "description": "Text content to write"}
-                },
-                "required": ["path", "content"]
-            }
-        }
-    },
-    {
-        "type": "function",
-        "function": {
-            "name": "list_directory",
-            "description": "List files and folders in a directory.",
-            "parameters": {
-                "type": "object",
-                "properties": {
-                    "path": {"type": "string", "description": "Directory path (defaults to current directory)"}
-                },
-                "required": []
-            }
-        }
-    },
-    {
-        "type": "function",
-        "function": {
-            "name": "open_browser",
-            "description": "Open a URL in the default system web browser (Chrome, Edge, Firefox, etc.).",
-            "parameters": {
-                "type": "object",
-                "properties": {
-                    "url": {"type": "string", "description": "The URL to open"}
-                },
-                "required": ["url"]
-            }
-        }
-    },
-    {
-        "type": "function",
-        "function": {
-            "name": "browser_navigate",
-            "description": "Open a URL in the browser. Use this to go to a specific page. The browser must already be open or this will open it.",
-            "parameters": {
-                "type": "object",
-                "properties": {
-                    "url": {"type": "string", "description": "URL to navigate to"}
-                },
-                "required": ["url"]
-            }
-        }
-    },
-    {
-        "type": "function",
-        "function": {
-            "name": "browser_click",
-            "description": "Click at screen coordinates (x, y). Use screenshot first to find coordinates. Common workflow: screenshot → analyze → click at coordinates.",
-            "parameters": {
-                "type": "object",
-                "properties": {
-                    "x": {"type": "number", "description": "X coordinate (pixels from left)"},
-                    "y": {"type": "number", "description": "Y coordinate (pixels from top)"}
-                },
-                "required": ["x", "y"]
-            }
-        }
-    },
-    {
-        "type": "function",
-        "function": {
-            "name": "browser_type",
-        "description": "Type text into the currently focused input field. Works in any app including the browser. Use Tab to move between fields, Enter to submit.",
-            "parameters": {
-                "type": "object",
-                "properties": {
-                    "text": {"type": "string", "description": "Text to type"},
-                    "interval": {"type": "number", "description": "Seconds between keystrokes (default 0.05)"}
-                },
-                "required": ["text"]
-            }
-        }
-    },
-    {
-        "type": "function",
-        "function": {
-            "name": "browser_screenshot",
-            "description": "Take a screenshot of the current screen. Use this to see what's on screen and find coordinates for clicking.",
-            "parameters": {
-                "type": "object",
-                "properties": {
-                    "path": {"type": "string", "description": "File path to save the screenshot (optional)"}
-                },
-                "required": []
-            }
-        }
-    },
-    {
-        "type": "function",
-        "function": {
-            "name": "keyboard_type",
-            "description": "Type text using system keyboard automation. Use this to fill fields in any app.",
-            "parameters": {
-                "type": "object",
-                "properties": {
-                    "text": {"type": "string", "description": "Text to type"},
-                    "interval": {"type": "number", "description": "Seconds between keystrokes (default 0.05)"}
-                },
-                "required": ["text"]
-            }
-        }
-    },
-    {
-        "type": "function",
-        "function": {
-            "name": "press_key",
-            "description": "Press a single keyboard key (e.g. enter, tab, escape, space).",
-            "parameters": {
-                "type": "object",
-                "properties": {
-                    "key": {"type": "string", "description": "Key name: enter, tab, escape, space, etc."}
-                },
-                "required": ["key"]
-            }
-        }
-    },
-    {
-        "type": "function",
-        "function": {
-            "name": "run_command",
-            "description": "Execute a shell command on the system and return the output.",
-            "parameters": {
-                "type": "object",
-                "properties": {
-                    "command": {"type": "string", "description": "Shell command to run"}
-                },
-                "required": ["command"]
-            }
-        }
-    },
+                "properties": properties,
+                "required": required or [],
+            },
+        },
+    }
+
+
+TOOLS: list[dict] = [
+    _tool("read_file", "Read the contents of a file from the filesystem.",
+          {"path": {"type": "string", "description": "Absolute or relative path"}},
+          ["path"]),
+    _tool("write_file", "Write content to a file. Creates directories as needed.",
+          {"path": {"type": "string"}, "content": {"type": "string"}},
+          ["path", "content"]),
+    _tool("append_file", "Append content to a file. Creates the file if missing.",
+          {"path": {"type": "string"}, "content": {"type": "string"}},
+          ["path", "content"]),
+    _tool("edit_file", "Replace the first occurrence of `find` with `replace` in a file. Use for targeted code edits.",
+          {"path": {"type": "string"}, "find": {"type": "string"}, "replace": {"type": "string"}},
+          ["path", "find", "replace"]),
+    _tool("list_directory", "List files and folders in a directory.",
+          {"path": {"type": "string", "description": "Directory path (defaults to current directory)"}}),
+    _tool("search_files", "Recursively find files whose name matches a glob (e.g. '*.py'). Fast — capped at 500 results.",
+          {"path": {"type": "string"}, "pattern": {"type": "string", "description": "Glob pattern like *.py"}},
+          ["pattern"]),
+    _tool("grep", "Recursively search file contents for a substring or regex. Returns file:line matches (capped at 200).",
+          {"path": {"type": "string"}, "pattern": {"type": "string"},
+           "regex": {"type": "boolean", "description": "Treat pattern as regex (default false)"}},
+          ["pattern"]),
+    _tool("open_browser", "Open a URL in the default system web browser.",
+          {"url": {"type": "string"}}, ["url"]),
+    _tool("browser_navigate", "Open a URL in the browser (same as open_browser).",
+          {"url": {"type": "string"}}, ["url"]),
+    _tool("browser_click", "Click at screen coordinates (x, y). Screenshot first to find coordinates.",
+          {"x": {"type": "number"}, "y": {"type": "number"}}, ["x", "y"]),
+    _tool("browser_type", "Type text into the currently focused input.",
+          {"text": {"type": "string"}, "interval": {"type": "number"}}, ["text"]),
+    _tool("browser_screenshot", "Take a screenshot and save it.",
+          {"path": {"type": "string"}}),
+    _tool("keyboard_type", "Type text via system keyboard automation.",
+          {"text": {"type": "string"}, "interval": {"type": "number"}}, ["text"]),
+    _tool("press_key", "Press a single key (enter, tab, escape, space, etc.). Use `+` for combos, e.g. 'ctrl+s'.",
+          {"key": {"type": "string"}}, ["key"]),
+    _tool("run_command", "Execute a shell command. Set `cwd` to run inside a specific directory. Times out at 120s.",
+          {"command": {"type": "string"}, "cwd": {"type": "string"}}, ["command"]),
+    _tool("python_eval", "Execute a short Python snippet in a subprocess and return stdout+stderr. Use for quick calculations, JSON manipulation, etc.",
+          {"code": {"type": "string"}}, ["code"]),
 ]
 
 
 def execute_tool(name: str, arguments: dict) -> str:
-    if name == "read_file":
-        return read_file(**arguments)
-    if name == "write_file":
-        return write_file(**arguments)
-    if name == "list_directory":
-        return list_directory(**arguments)
-    if name == "open_browser":
-        return open_browser(**arguments)
-    if name == "browser_navigate":
-        return browser_navigate(**arguments)
-    if name == "browser_click":
-        return browser_click(**arguments)
-    if name == "browser_type":
-        return browser_type(**arguments)
-    if name == "browser_screenshot":
-        return browser_screenshot(**arguments)
-    if name == "keyboard_type":
-        return keyboard_type(**arguments)
-    if name == "press_key":
-        return press_key(**arguments)
-    if name == "run_command":
-        return run_command(**arguments)
-    return f"Unknown tool: {name}"
+    fn = _DISPATCH.get(name)
+    if not fn:
+        return f"Unknown tool: {name}"
+    try:
+        return fn(**arguments)
+    except TypeError as e:
+        return f"Error calling {name}: bad arguments ({e})"
 
 
-# --- File operations ---
+# --- File operations -----------------------------------------------------
 
 def read_file(path: str) -> str:
     try:
@@ -236,7 +114,10 @@ def read_file(path: str) -> str:
             return f"Error: file not found: {p}"
         if p.is_dir():
             return f"Error: {p} is a directory, not a file."
-        return p.read_text(encoding="utf-8")
+        data = p.read_text(encoding="utf-8", errors="replace")
+        if len(data) > 200_000:
+            return data[:200_000] + f"\n… (truncated, total {len(data)} chars)"
+        return data
     except Exception as e:
         return f"Error reading file: {e}"
 
@@ -251,6 +132,32 @@ def write_file(path: str, content: str) -> str:
         return f"Error writing file: {e}"
 
 
+def append_file(path: str, content: str) -> str:
+    try:
+        p = Path(path).expanduser().resolve()
+        p.parent.mkdir(parents=True, exist_ok=True)
+        with p.open("a", encoding="utf-8") as fh:
+            fh.write(content)
+        return f"Appended {len(content)} chars to {p}"
+    except Exception as e:
+        return f"Error appending file: {e}"
+
+
+def edit_file(path: str, find: str, replace: str) -> str:
+    try:
+        p = Path(path).expanduser().resolve()
+        if not p.exists():
+            return f"Error: file not found: {p}"
+        original = p.read_text(encoding="utf-8", errors="replace")
+        if find not in original:
+            return f"Error: `find` snippet not found in {p}. No change written."
+        updated = original.replace(find, replace, 1)
+        p.write_text(updated, encoding="utf-8")
+        return f"Edited {p} (1 replacement)."
+    except Exception as e:
+        return f"Error editing file: {e}"
+
+
 def list_directory(path: str = "") -> str:
     try:
         p = Path(path or ".").expanduser().resolve()
@@ -259,16 +166,67 @@ def list_directory(path: str = "") -> str:
         if not p.is_dir():
             return f"Error: {p} is not a directory."
         items = sorted(p.iterdir(), key=lambda x: (x.is_file(), x.name.lower()))
-        lines = []
-        for item in items:
-            tag = "[DIR]" if item.is_dir() else "     "
-            lines.append(f"{tag} {item.name}")
+        lines = [f"{'[DIR]' if item.is_dir() else '     '} {item.name}" for item in items]
         return "\n".join(lines) or "(empty)"
     except Exception as e:
         return f"Error listing directory: {e}"
 
 
-# --- Browser automation (lightweight, uses system browser + pyautogui) ---
+_IGNORE_DIRS = {".git", "node_modules", "__pycache__", ".venv", "venv", "dist", "build", ".mypy_cache", ".pytest_cache"}
+
+
+def search_files(pattern: str, path: str = "") -> str:
+    try:
+        root = Path(path or ".").expanduser().resolve()
+        if not root.exists():
+            return f"Error: path not found: {root}"
+        matches: list[str] = []
+        for dirpath, dirnames, filenames in os.walk(root):
+            dirnames[:] = [d for d in dirnames if d not in _IGNORE_DIRS]
+            for name in filenames:
+                if fnmatch.fnmatch(name, pattern):
+                    matches.append(str(Path(dirpath, name)))
+                    if len(matches) >= 500:
+                        matches.append("… (capped at 500)")
+                        return "\n".join(matches)
+        return "\n".join(matches) or "(no matches)"
+    except Exception as e:
+        return f"Error searching files: {e}"
+
+
+def grep(pattern: str, path: str = "", regex: bool = False) -> str:
+    import re
+    try:
+        root = Path(path or ".").expanduser().resolve()
+        if not root.exists():
+            return f"Error: path not found: {root}"
+        rx = re.compile(pattern) if regex else None
+        hits: list[str] = []
+        targets: list[Path] = [root] if root.is_file() else []
+        if root.is_dir():
+            for dirpath, dirnames, filenames in os.walk(root):
+                dirnames[:] = [d for d in dirnames if d not in _IGNORE_DIRS]
+                for name in filenames:
+                    targets.append(Path(dirpath, name))
+        for f in targets:
+            try:
+                if f.stat().st_size > 2_000_000:
+                    continue
+                with f.open("r", encoding="utf-8", errors="ignore") as fh:
+                    for i, line in enumerate(fh, 1):
+                        if (rx.search(line) if rx else (pattern in line)):
+                            hits.append(f"{f}:{i}: {line.rstrip()[:200]}")
+                            if len(hits) >= 200:
+                                hits.append("… (capped at 200)")
+                                return "\n".join(hits)
+            except Exception:
+                continue
+        return "\n".join(hits) or "(no matches)"
+    except Exception as e:
+        return f"Error grepping: {e}"
+
+
+# --- Browser / GUI automation --------------------------------------------
 
 def open_browser(url: str) -> str:
     try:
@@ -281,13 +239,7 @@ def open_browser(url: str) -> str:
 
 
 def browser_navigate(url: str) -> str:
-    try:
-        webbrowser.open(url)
-        time.sleep(0.5)
-        _focus_browser_window()
-        return f"Opened {url} in browser."
-    except Exception as e:
-        return f"Error navigating browser: {e}"
+    return open_browser(url)
 
 
 def browser_click(x: float, y: float) -> str:
@@ -296,7 +248,7 @@ def browser_click(x: float, y: float) -> str:
     try:
         _focus_browser_window()
         pyautogui.click(x, y)
-        return f"Clicked at coordinates ({x}, {y})."
+        return f"Clicked at ({x}, {y})."
     except Exception as e:
         return f"Error clicking: {e}"
 
@@ -307,7 +259,7 @@ def browser_type(text: str, interval: float = 0.05) -> str:
     try:
         _focus_browser_window()
         pyautogui.typewrite(text, interval=interval)
-        return f"Typed text into focused input."
+        return "Typed text into focused input."
     except Exception as e:
         return f"Error typing: {e}"
 
@@ -317,21 +269,18 @@ def browser_screenshot(path: str = "") -> str:
         return "Error: pyautogui not installed. Run: pip install pyautogui"
     try:
         p = Path(path or "screenshot.png").expanduser().resolve()
-        img = pyautogui.screenshot()
-        img.save(str(p))
+        pyautogui.screenshot().save(str(p))
         return f"Screenshot saved to {p}"
     except Exception as e:
         return f"Error taking screenshot: {e}"
 
-
-# --- Keyboard automation ---
 
 def keyboard_type(text: str, interval: float = 0.05) -> str:
     if not PYAUTOGUI_AVAILABLE:
         return "Error: pyautogui not installed. Run: pip install pyautogui"
     try:
         pyautogui.typewrite(text, interval=interval)
-        return f"Typed text via keyboard."
+        return "Typed text via keyboard."
     except Exception as e:
         return f"Error typing: {e}"
 
@@ -340,32 +289,67 @@ def press_key(key: str) -> str:
     if not PYAUTOGUI_AVAILABLE:
         return "Error: pyautogui not installed. Run: pip install pyautogui"
     try:
-        pyautogui.press(key)
+        if "+" in key:
+            pyautogui.hotkey(*[k.strip() for k in key.split("+")])
+        else:
+            pyautogui.press(key)
         return f"Pressed key: {key}"
     except Exception as e:
         return f"Error pressing key: {e}"
 
 
-# --- System commands ---
+# --- Shell + Python ------------------------------------------------------
 
-def run_command(command: str) -> str:
+def run_command(command: str, cwd: str = "") -> str:
     try:
         result = subprocess.run(
-            command,
-            shell=True,
-            capture_output=True,
-            text=True,
-            timeout=60,
+            command, shell=True, capture_output=True, text=True,
+            timeout=120, cwd=(cwd or None),
         )
-        out = result.stdout.strip()
-        err = result.stderr.strip()
-        if err:
-            out = (out + "\n" if out else "") + err
-        return out if out else "(command completed with no output)"
+        out = (result.stdout or "").strip()
+        err = (result.stderr or "").strip()
+        combined = out + (("\n" + err) if err and out else err)
+        header = f"(exit {result.returncode})\n"
+        return header + (combined if combined else "(no output)")
     except subprocess.TimeoutExpired:
-        return "Error: command timed out after 60s."
+        return "Error: command timed out after 120s."
     except Exception as e:
         return f"Error running command: {e}"
+
+
+def python_eval(code: str) -> str:
+    try:
+        result = subprocess.run(
+            ["python", "-c", code], capture_output=True, text=True, timeout=30,
+        )
+        out = (result.stdout or "") + (("\n" + result.stderr) if result.stderr else "")
+        return f"(exit {result.returncode})\n{out.strip() or '(no output)'}"
+    except FileNotFoundError:
+        return "Error: `python` not found on PATH."
+    except subprocess.TimeoutExpired:
+        return "Error: python snippet timed out after 30s."
+    except Exception as e:
+        return f"Error running python: {e}"
+
+
+_DISPATCH: dict[str, Any] = {
+    "read_file": read_file,
+    "write_file": write_file,
+    "append_file": append_file,
+    "edit_file": edit_file,
+    "list_directory": list_directory,
+    "search_files": search_files,
+    "grep": grep,
+    "open_browser": open_browser,
+    "browser_navigate": browser_navigate,
+    "browser_click": browser_click,
+    "browser_type": browser_type,
+    "browser_screenshot": browser_screenshot,
+    "keyboard_type": keyboard_type,
+    "press_key": press_key,
+    "run_command": run_command,
+    "python_eval": python_eval,
+}
 
 
 def get_tool_instructions() -> str:
@@ -374,52 +358,20 @@ def get_tool_instructions() -> str:
         missing.append("browser_click, browser_type, browser_screenshot, keyboard_type, press_key")
 
     lines = [
-        "You are an AI agent with direct control of the user's computer. Use the tools below when they help accomplish the user's task.",
+        "You are Pokkie — a coding + automation agent with direct control of the user's computer.",
         "",
         "RULES:",
-        "- If the user asks a simple question (like 'hi', 'how are you', 'what is 2+2'), just answer normally. DO NOT use tools.",
-        "- Only use tools when the task actually requires controlling the computer, browsing the web, or manipulating files.",
-        "- NEVER say 'I cannot do this' or 'I am an AI'. Use the tools.",
-        "- If a tool result shows an error, try a different approach.",
-        "- For browser tasks: open_browser(url) → browser_type(text) → press_key('enter') → browser_screenshot(path).",
-        "- Do NOT call both open_browser and browser_navigate for the same URL. Pick ONE.",
-        "- For file tasks: use list_directory, read_file, write_file directly.",
-        "- For keyboard tasks: use keyboard_type and press_key.",
-        "- Always show the user what you are doing before doing it.",
+        "- Simple chit-chat (greetings, math, factual Qs) → answer directly, NO tools.",
+        "- Coding tasks → prefer `read_file`, `grep`, `search_files`, `edit_file`, `write_file`, `run_command`.",
+        "- Browser/GUI tasks → screenshot → analyze → click/type. Don't call open_browser AND browser_navigate for the same URL.",
+        "- If a tool errors, try a different approach — don't repeat the identical call.",
+        "- Always describe the action before doing anything destructive.",
         "",
-        "**File operations:**",
-        "- `read_file(path)` — read a file's contents",
-        "- `write_file(path, content)` — create or overwrite a file",
-        "- `list_directory(path)` — list files in a directory",
-        "",
-        "**Browser automation (uses system browser + keyboard):**",
-        "- `open_browser(url)` — open a URL in the default browser",
-        "- `browser_navigate(url)` — open a URL in the browser",
-        "- `browser_click(x, y)` — click at screen coordinates (use screenshot first to find coords)",
-        "- `browser_type(text)` — type into the focused input field",
-        "- `browser_screenshot(path)` — screenshot the current screen",
-        "",
-        "**Keyboard automation:**",
-        "- `keyboard_type(text, interval=0.05)` — type text via keyboard",
-        "- `press_key(key)` — press a key (enter, tab, escape, space, etc.)",
-        "",
-        "**System:**",
-        "- `run_command(command)` — execute a shell command",
-        "",
-        "When you need to use a tool, output a tool call in this exact JSON format:",
-        '```json',
-        '{"name": "tool_name", "arguments": {"param": "value"}}',
-        '```',
-        "I will execute it and return the result. You can call multiple tools in sequence.",
-        "",
-        "Example browser workflow for generating an image:",
-        '1. open_browser({"url": "https://ideogram.ai"})',
-        '2. browser_type({"text": "A cute cat wearing sunglasses"})',
-        '3. press_key({"key": "enter"})',
-        '4. browser_screenshot({"path": "cat.png"})',
+        "File & code tools: read_file, write_file, append_file, edit_file, list_directory, search_files, grep",
+        "Shell tools: run_command(command, cwd?), python_eval(code)",
+        "Browser tools: open_browser, browser_click, browser_type, browser_screenshot",
+        "Keyboard: keyboard_type, press_key (supports 'ctrl+s' combos)",
     ]
-
     if missing:
-        lines.append(f"\nNote: some tools are unavailable because dependencies are missing: {', '.join(missing)}.")
-
+        lines.append(f"\nNote: missing dependencies disable: {', '.join(missing)}. Install with `pip install pyautogui`.")
     return "\n".join(lines)

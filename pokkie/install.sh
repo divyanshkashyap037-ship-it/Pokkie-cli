@@ -1,19 +1,8 @@
 #!/usr/bin/env bash
 set -e
-echo ""
-echo "============================================"
-echo "  Installing Pokkie v0.2 - AI Terminal Assistant"
-echo "============================================"
-echo ""
-
-if ! command -v python3 >/dev/null 2>&1; then
-    echo "[ERROR] python3 not found. Install Python 3.9+ first."
-    exit 1
-fi
-
+echo "Installing Pokkie v0.4…"
 python3 -m pip install --upgrade pip
-python3 -m pip install --upgrade --force-reinstall .
-
+# Install core + automation extras; pygetwindow is auto-skipped on non-Windows via the marker.
+python3 -m pip install --upgrade ".[automation]"
 echo ""
-echo "✅ Installed! Run: pokkie"
-echo "If Groq says Access denied, run /doctor inside Pokkie."
+echo "Done. Run:  pokkie"

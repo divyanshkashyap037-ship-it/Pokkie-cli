@@ -4,15 +4,19 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "pokkie"
-version = "0.2.0"
-description = "Blazingly fast AI terminal assistant powered by Groq"
+version = "0.4.0"
+description = "Blazingly fast AI terminal assistant + coding agent (Groq + NVIDIA NIM)"
 requires-python = ">=3.9"
 dependencies = [
     "rich>=13.7.0",
     "prompt_toolkit>=3.0.43",
+]
+
+[project.optional-dependencies]
+automation = [
     "pyautogui>=0.9.54",
     "pillow>=10.0.0",
-    "pygetwindow>=0.0.9",
+    'pygetwindow>=0.0.9; sys_platform == "win32"',
 ]
 
 [project.scripts]

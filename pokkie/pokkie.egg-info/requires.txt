@@ -1,5 +1,9 @@
 rich>=13.7.0
 prompt_toolkit>=3.0.43
+
+[automation]
 pyautogui>=0.9.54
 pillow>=10.0.0
+
+[automation:sys_platform == "win32"]
 pygetwindow>=0.0.9

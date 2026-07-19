@@ -21,7 +21,7 @@ WARN = "bold #fbbf24"
 BAD = "bold #ef4444"
 
 
-def banner(model: str, has_key: bool) -> None:
+def banner(provider_label: str, model: str, has_key: bool) -> None:
     logo = Text()
     if console.width >= 78:
         logo.append("██████╗  ██████╗ ██╗  ██╗██╗  ██╗██╗███████╗\n", style=ACCENT)
@@ -31,18 +31,18 @@ def banner(model: str, has_key: bool) -> None:
         logo.append("██║     ╚██████╔╝██║  ██╗██║  ██╗██║███████╗\n", style=ACCENT)
         logo.append("╚═╝      ╚═════╝ ╚═╝  ╚═╝╚═╝  ╚═╝╚═╝╚══════╝", style=ACCENT)
     else:
-        logo.append("POKKIE", style="bold #a78bfa")
+        logo.append("POKKIE", style=ACCENT)
 
     subtitle = Text()
     subtitle.append("blazingly fast • ", style=MUTED)
-    subtitle.append("groq-powered", style=OK)
+    subtitle.append(provider_label, style=OK)
     subtitle.append(" • type ", style=MUTED)
     subtitle.append("/help", style="bold #fbbf24")
     subtitle.append(" for commands", style=MUTED)
 
     status = Text()
     status.append("model ", style=MUTED)
-    status.append(f"{model}  ", style="bold #a78bfa")
+    status.append(f"{model}  ", style=ACCENT)
     status.append(" │ api ", style=MUTED)
     status.append("✔ connected" if has_key else "✖ missing key (/settings)",
                   style=OK if has_key else BAD)
@@ -52,7 +52,6 @@ def banner(model: str, has_key: bool) -> None:
         Padding(Align.center(subtitle), (1, 0, 0, 0)),
         Align.center(status),
     )
-
     console.print()
     console.print(Panel(body, border_style="#7c3aed", box=box.HEAVY, padding=(1, 2)))
     console.print()
@@ -60,19 +59,22 @@ def banner(model: str, has_key: bool) -> None:
 
 def help_table() -> None:
     t = Table(box=box.ROUNDED, border_style="#a78bfa", show_header=True,
-              header_style="bold #f472b6", title="Pokkie Commands",
-              title_style="bold #a78bfa")
+              header_style="bold #f472b6", title="Pokkie Commands", title_style=ACCENT)
     t.add_column("Command", style="bold #22d3ee", no_wrap=True)
     t.add_column("Description", style="white")
-    t.add_row("/help", "Show all commands")
-    t.add_row("/settings", "Configure Groq API key, system prompt & tools")
-    t.add_row("/model", "Switch active Groq model")
-    t.add_row("/models", "List available models")
-    t.add_row("/tools", "Show installed automation dependencies")
-    t.add_row("/doctor", "Diagnose key/network/API problems")
-    t.add_row("/clear", "Clear the current conversation")
-    t.add_row("/system <text>", "Update the system prompt inline")
-    t.add_row("/exit  /quit", "Exit Pokkie")
+    for cmd, desc in [
+        ("/help", "Show all commands"),
+        ("/settings", "Configure API keys, system prompt, tools"),
+        ("/provider", "Switch AI provider (Groq / NVIDIA NIM)"),
+        ("/model", "Switch model for the current provider"),
+        ("/models", "List models for the current provider"),
+        ("/tools", "Show installed automation dependencies"),
+        ("/doctor", "Diagnose key/network/API problems"),
+        ("/clear", "Clear the current conversation"),
+        ("/system <text>", "Update the system prompt inline"),
+        ("/exit  /quit", "Exit Pokkie"),
+    ]:
+        t.add_row(cmd, desc)
     console.print(t)
 
 
@@ -83,7 +85,19 @@ def models_table(models: list[str], current: str) -> None:
     t.add_column("Use", style="#94a3b8")
     for model in models:
         active = model == current
-        t.add_row("●" if active else "○", model, "active" if active else f"/model → choose {models.index(model) + 1}")
+        t.add_row("●" if active else "○", model,
+                  "active" if active else f"/model → choose {models.index(model) + 1}")
+    console.print(t)
+
+
+def providers_table(providers: dict, current: str) -> None:
+    t = Table(box=box.SIMPLE_HEAVY, border_style="#334155", show_header=True, title="Providers")
+    t.add_column("", width=2, justify="center")
+    t.add_column("Id", style="bold #22d3ee")
+    t.add_column("Label", style="white")
+    for i, (pid, meta) in enumerate(providers.items(), 1):
+        active = pid == current
+        t.add_row("●" if active else str(i), pid, meta["label"] + ("  (active)" if active else ""))
     console.print(t)
 
 
@@ -97,8 +111,13 @@ def render_user(text: str) -> None:
 
 
 def render_ai_markdown(text: str) -> None:
-    console.print(Panel(Markdown(text), title="pokkie", title_align="left",
-                        border_style=AI, box=box.ROUNDED))
+    console.print(Panel(Markdown(text), title="pokkie",
+                        title_align="left", border_style=AI, box=box.ROUNDED))
+
+
+def section(title: str) -> None:
+    console.print()
+    console.print(Text(title, style=ACCENT))
 
 
 def info(msg: str) -> None:
@@ -106,7 +125,7 @@ def info(msg: str) -> None:
 
 
 def warn(msg: str) -> None:
-    console.print(f"[{WARN}]![/] {msg}")
+    console.print(f"[{WARN}]⚠[/] {msg}")
 
 
 def error(msg: str) -> None:
@@ -115,14 +134,10 @@ def error(msg: str) -> None:
 
 def error_box(title: str, message: str, hints: list[str] | None = None) -> None:
     body = Text()
-    body.append(message, style="#fecaca")
+    body.append(message + "\n", style="white")
     if hints:
-        body.append("\n\nTry:\n", style=MUTED)
-        for hint in hints:
-            body.append(f"  • {hint}\n", style="#e2e8f0")
-    console.print(Panel(body, title=title, title_align="left", border_style="#ef4444", box=box.ROUNDED))
-
-
-def section(title: str) -> None:
-    console.print()
-    console.rule(f"[bold #a78bfa]{title}[/]", style="#334155")
+        body.append("\nTry:\n", style=MUTED)
+        for h in hints:
+            body.append(f"  • {h}\n", style=MUTED)
+    console.print(Panel(body, title=title, title_align="left",
+                        border_style=BAD, box=box.ROUNDED))
